@@ -1,5 +1,6 @@
 import { LogOut } from 'lucide-react';
 import { signOut } from '@/auth';
+import styles from './AuthBadge.module.css';
 
 type Props = {
   user: {
@@ -13,12 +14,12 @@ export function AuthBadge({ user }: Props) {
   const initial = (user.name || user.email || 'S').trim().charAt(0).toUpperCase();
 
   return (
-    <details className="sonora-auth-badge">
+    <details className={styles.root}>
       <summary aria-label="Account menu">
         {user.image ? <img src={user.image} alt=""/> : <span>{initial}</span>}
       </summary>
-      <div className="sonora-auth-menu">
-        <div className="sonora-auth-copy">
+      <div className={styles.menu}>
+        <div className={styles.copy}>
           <b>{user.name || 'Sonora user'}</b>
           <span>{user.email}</span>
         </div>
