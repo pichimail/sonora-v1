@@ -1,0 +1,31 @@
+import { LogOut } from 'lucide-react';
+import { signOut } from '@/auth';
+
+type Props = {
+  user: {
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
+};
+
+export function AuthBadge({ user }: Props) {
+  const initial = (user.name || user.email || 'S').trim().charAt(0).toUpperCase();
+
+  return (
+    <details className="sonora-auth-badge">
+      <summary aria-label="Account menu">
+        {user.image ? <img src={user.image} alt=""/> : <span>{initial}</span>}
+      </summary>
+      <div className="sonora-auth-menu">
+        <div className="sonora-auth-copy">
+          <b>{user.name || 'Sonora user'}</b>
+          <span>{user.email}</span>
+        </div>
+        <form action={async () => { 'use server'; await signOut({ redirectTo: '/signin' }); }}>
+          <button type="submit"><LogOut size={14}/> Sign out</button>
+        </form>
+      </div>
+    </details>
+  );
+}
