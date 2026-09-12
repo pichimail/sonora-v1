@@ -2,19 +2,20 @@
 
 Standalone AI music studio built with Next.js, TypeScript and the MusicGPT Public API.
 
-This repository intentionally contains the **Sonora application only**. It does not carry the unrelated legacy Solimar pages/routes from the source workspace.
+This repository contains the Sonora application only. It does not carry unrelated legacy Solimar pages or routes from the source workspace.
 
 ## Current implementation
 
 - Responsive Sonora studio UI for desktop and mobile
 - Fluid spring-based menus, nested tool navigation and hover motion
-- Click-outside and `Escape` dismissal for open menus/popovers
+- Click-outside and `Escape` dismissal for menus/popovers
 - 25 Sonora workflows mapped across the documented MusicGPT endpoints
+- Google OAuth authentication with Auth.js v5
+- Neon-backed Sonora user records and per-user generation history
+- Upstash Redis fixed-window rate limiting for generation, reads and uploads
+- Vercel Blob uploads namespaced by authenticated user
 - MusicGPT safe/mock mode when no API key is configured
-- Neon Postgres persistence for generation jobs
-- Vercel Blob upload endpoint for audio/image inputs
-- Health and job-history API routes
-- Search/library side sheets and generation/player surfaces
+- Integration health endpoint for Neon, Redis, Blob, Auth and MusicGPT
 - Reduced-motion support and keyboard `/` prompt focus
 
 ## Stack
@@ -22,12 +23,14 @@ This repository intentionally contains the **Sonora application only**. It does 
 - Next.js 16.2.6 App Router
 - React 19.2.6
 - TypeScript 5.9
+- Auth.js / `next-auth` v5 beta
 - Framer Motion
 - Lucide React
 - Neon Serverless Postgres
-- Upstash Redis dependency reserved for the rate-limit/cache integration pass
+- Upstash Redis
 - Vercel Blob
 - MusicGPT Public API
+- Vitest
 - Vercel deployment target
 
 ## Project structure
@@ -35,21 +38,25 @@ This repository intentionally contains the **Sonora application only**. It does 
 ```text
 src/
   app/
+    api/auth/[...nextauth]/route.ts
     api/sonora/
       [feature]/route.ts
       health/route.ts
       jobs/route.ts
       upload/route.ts
-    globals.css
-    layout.tsx
+    signin/page.tsx
     page.tsx
-    sonora.css
+  auth.ts
   components/sonora/
+    AuthBadge.tsx
     GooeyMenu.tsx
     SonoraStudio.tsx
     modes.ts
   lib/sonora/
+    auth-db.ts
     musicgpt.ts
+    redis.ts
+    redis.test.ts
 ```
 
 ## Local development
@@ -67,26 +74,28 @@ pnpm dev
 
 Open `http://localhost:3000`.
 
-The application runs in safe/mock mode when `MUSICGPT_API_KEY` is not set.
-
 ## Verification
 
 ```bash
 pnpm lint
 pnpm typecheck
+pnpm test
 pnpm build
 ```
 
 ## Environment variables
 
-Copy `.env.example` and configure the values you need. Never commit real credentials.
-
-Core variables:
+Copy `.env.example` and configure the values in Vercel Project Settings > Environment Variables.
 
 ```bash
-MUSICGPT_API_KEY=
-MUSICGPT_BASE_URL=https://api.musicgpt.com/api/public
-MUSICGPT_MOCK=0
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+PUBLIC_BASE_URL=http://localhost:3000
+
+AUTH_SECRET=
+AUTH_URL=http://localhost:3000
+AUTH_TRUST_HOST=true
+AUTH_GOOGLE_ID=
+AUTH_GOOGLE_SECRET=
 
 DATABASE_URL=
 NEON_DATABASE_URL=
@@ -96,41 +105,67 @@ UPSTASH_REDIS_REST_TOKEN=
 
 BLOB_READ_WRITE_TOKEN=
 
-AUTH_SECRET=
-AUTH_URL=http://localhost:3000
-AUTH_TRUST_HOST=true
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
+MUSICGPT_API_KEY=
+MUSICGPT_BASE_URL=https://api.musicgpt.com/api/public
+MUSICGPT_PLAN=
+MUSICGPT_MOCK=0
+MUSICGPT_LIVE_TEST=0
 
-PUBLIC_BASE_URL=http://localhost:3000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
 WEBHOOK_SECRET=
 ```
 
-`MUSICGPT_API_KEY`, database credentials, Redis tokens, Blob tokens and Google client secrets must remain server-only. Do not expose them through `NEXT_PUBLIC_*` variables.
+Never expose provider keys, OAuth client secrets, database credentials, Redis tokens or Blob tokens through `NEXT_PUBLIC_*` variables.
 
-## MusicGPT transport rules
+## Neon database
 
-The server adapter keeps the provider key private and sends the raw key through the `Authorization` header. It supports JSON, query-string, form-urlencoded and multipart endpoint families and falls back from `/v2/MusicAI` to `/v1/MusicAI` only when v2 returns HTTP 404.
+Dedicated project:
 
-## Database
+```text
+sonora-ai-music-studio
+```
 
-When `DATABASE_URL` or `NEON_DATABASE_URL` is present, Sonora lazily creates the `sonora_jobs` table and stores generation requests/status metadata there.
+Target database:
 
-## Storage
+```text
+sonora_v2
+```
 
-When `BLOB_READ_WRITE_TOKEN` is configured, uploads are stored under `sonora/` in Vercel Blob. Without the token, the upload route stays in safe mode so the UI can still be exercised without exposing local files.
+The database contains `sonora_users` and `sonora_jobs`, with job ownership linked to the authenticated Sonora user.
 
 ## Google OAuth
 
-Google OAuth is included in `.env.example` for the next authentication integration pass. The expected callback pattern will be:
+Local authorized JavaScript origin:
+
+```text
+http://localhost:3000
+```
+
+Local authorized redirect URI:
 
 ```text
 http://localhost:3000/api/auth/callback/google
+```
+
+For production, use:
+
+```text
+https://YOUR_PRODUCTION_DOMAIN
 https://YOUR_PRODUCTION_DOMAIN/api/auth/callback/google
 ```
 
-The exact production URL should be added to Google Cloud after the dedicated Vercel project is deployed.
+Replace `YOUR_PRODUCTION_DOMAIN` after the dedicated Vercel project is deployed.
+
+## Storage
+
+With `BLOB_READ_WRITE_TOKEN`, uploads are stored under:
+
+```text
+sonora/<authenticated-user-id>/...
+```
+
+## Redis
+
+When `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured, Sonora applies server-side fixed-window rate limits. If Redis is not configured, the application remains functional but reports Redis as unconfigured through the health endpoint.
 
 ## Repository
 
