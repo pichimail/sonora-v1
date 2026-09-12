@@ -6,7 +6,6 @@ type Props = {
   user: {
     name?: string | null;
     email?: string | null;
-    image?: string | null;
   };
 };
 
@@ -15,9 +14,7 @@ export function AuthBadge({ user }: Props) {
 
   return (
     <details className={styles.root}>
-      <summary aria-label="Account menu">
-        {user.image ? <img src={user.image} alt=""/> : <span>{initial}</span>}
-      </summary>
+      <summary aria-label="Account menu"><span>{initial}</span></summary>
       <div className={styles.menu}>
         <div className={styles.copy}>
           <b>{user.name || 'Sonora user'}</b>
